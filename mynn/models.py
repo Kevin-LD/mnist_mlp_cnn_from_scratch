@@ -46,23 +46,22 @@ class Model_MLP(Layer):
         self.size_list = param_list[0]
         self.act_func = param_list[1]
 
+        self.layers = []
         for i in range(len(self.size_list) - 1):
-            self.layers = []
-            for i in range(len(self.size_list) - 1):
-                layer = Linear(in_dim=self.size_list[i], out_dim=self.size_list[i + 1])
-                layer.W = param_list[i + 2]['W']
-                layer.b = param_list[i + 2]['b']
-                layer.params['W'] = layer.W
-                layer.params['b'] = layer.b
-                layer.weight_decay = param_list[i + 2]['weight_decay']
-                layer.weight_decay_lambda = param_list[i+2]['lambda']
-                if self.act_func == 'Logistic':
-                    raise NotImplemented
-                elif self.act_func == 'ReLU':
-                    layer_f = ReLU()
-                self.layers.append(layer)
-                if i < len(self.size_list) - 2:
-                    self.layers.append(layer_f)
+            layer = Linear(in_dim=self.size_list[i], out_dim=self.size_list[i + 1])
+            layer.W = param_list[i + 2]['W']
+            layer.b = param_list[i + 2]['b']
+            layer.params['W'] = layer.W
+            layer.params['b'] = layer.b
+            layer.weight_decay = param_list[i + 2]['weight_decay']
+            layer.weight_decay_lambda = param_list[i+2]['lambda']
+            if self.act_func == 'Logistic':
+                raise NotImplementedError
+            elif self.act_func == 'ReLU':
+                layer_f = ReLU()
+            self.layers.append(layer)
+            if i < len(self.size_list) - 2:
+                self.layers.append(layer_f)
         
     def save_model(self, save_path):
         param_list = [self.size_list, self.act_func]

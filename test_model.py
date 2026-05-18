@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import pickle
 
 model = nn.models.Model_MLP()
-model.load_model(r'.\saved_models\best_model_1.pickle')
+model.load_model(r'.\best_models\base_line_best_model.pickle')
 
 test_images_path = r'.\dataset\MNIST\t10k-images-idx3-ubyte.gz'
 test_labels_path = r'.\dataset\MNIST\t10k-labels-idx1-ubyte.gz'

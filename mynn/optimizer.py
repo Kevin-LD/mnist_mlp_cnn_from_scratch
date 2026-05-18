@@ -20,9 +20,8 @@ class SGD(Optimizer):
         for layer in self.model.layers:
             if layer.optimizable == True:
                 for key in layer.params.keys():
-                    if layer.weight_decay:
-                        layer.params[key] *= (1 - self.init_lr * layer.weight_decay_lambda)
-                    layer.params[key] = layer.params[key] - self.init_lr * layer.grads[key]
+                    # 去掉了 weight decay，改为在 backward 中计算 grad 时直接加上 weight decay 的项
+                    layer.params[key] -= self.init_lr * layer.grads[key]
 
 
 class MomentGD(Optimizer):
