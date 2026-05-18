@@ -3,3 +3,12 @@ dataset/
 
 # python
 __pycache__/
+
+# vscode
+.vscode/
+
+memo.txt
+
+# 模型权重
+best_models/
+idx.pickle
