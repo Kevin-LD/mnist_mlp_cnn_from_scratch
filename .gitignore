@@ -7,6 +7,8 @@ __pycache__/
 # vscode
 .vscode/
 
+# 临时文件
+test.py
 memo.txt
 
 # 模型权重
