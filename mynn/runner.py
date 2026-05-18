@@ -41,7 +41,15 @@ class RunnerM():
             X = X[idx]
             y = y[idx]
 
-            for iteration in range(int(X.shape[0] / self.batch_size) + 1):
+            # 计算总迭代数并用 tqdm 包裹循环
+            total_iters = int(X.shape[0] / self.batch_size) + 1
+            iter_bar = tqdm(
+                range(total_iters), 
+                desc=f"Epoch {epoch+1}/{num_epochs}", 
+                leave=True
+            )
+
+            for iteration in iter_bar:
                 train_X = X[iteration * self.batch_size : (iteration+1) * self.batch_size]
                 train_y = y[iteration * self.batch_size : (iteration+1) * self.batch_size]
 
@@ -63,15 +71,23 @@ class RunnerM():
                 self.dev_scores.append(dev_score)
                 self.dev_loss.append(dev_loss)
 
+                # 动态把当前的 loss 和 score 刷新到进度条右侧
+                iter_bar.set_postfix({
+                    "loss": f"{trn_loss:.4f}" if isinstance(trn_loss, (int, float)) else str(trn_loss)[:6],
+                    "dev_score": f"{dev_score:.4f}" if isinstance(dev_score, (int, float)) else str(dev_score)[:6]
+                })
+
                 if (iteration) % log_iters == 0:
-                    print(f"epoch: {epoch}, iteration: {iteration}")
-                    print(f"[Train] loss: {trn_loss}, score: {trn_score}")
-                    print(f"[Dev] loss: {dev_loss}, score: {dev_score}")
+                    # 使用 tqdm.write 代替 print
+                    tqdm.write(f"epoch: {epoch}, iteration: {iteration}")
+                    tqdm.write(f"[Train] loss: {trn_loss}, score: {trn_score}")
+                    tqdm.write(f"[Dev] loss: {dev_loss}, score: {dev_score}")
 
             if dev_score > best_score:
                 save_path = os.path.join(save_dir, 'best_model.pickle')
                 self.save_model(save_path)
-                print(f"best accuracy performence has been updated: {best_score:.5f} --> {dev_score:.5f}")
+                # 改用 tqdm.write
+                tqdm.write(f"best accuracy performance has been updated: {best_score:.5f} --> {dev_score:.5f}")
                 best_score = dev_score
         self.best_score = best_score
 
