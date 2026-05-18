@@ -24,7 +24,23 @@ class StepLR(scheduler):
             self.step_count = 0
 
 class MultiStepLR(scheduler):
-    pass
+    def __init__(self, optimizer, milestones, gamma=0.1) -> None:
+        """
+        milestones: list of integers. Must be increasing. (e.g., [800, 2400, 4000])
+        gamma: multiplicative factor of learning rate decay.
+        """
+        super().__init__(optimizer)
+        # 将 milestones 转换为 set，这样在 step() 中用 in 判断时复杂度为 O(1)，效率更高
+        self.milestones = set(milestones)
+        self.gamma = gamma
+
+    def step(self) -> None:
+        # 步数全局累加
+        self.step_count += 1
+        
+        # 当当前的全局步数触发了设定的里程碑时，衰减学习率
+        if self.step_count in self.milestones:
+            self.optimizer.init_lr *= self.gamma
 
 class ExponentialLR(scheduler):
     pass
