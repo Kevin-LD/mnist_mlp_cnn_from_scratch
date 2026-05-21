@@ -85,8 +85,10 @@ def main():
         input_dim = train_imgs.shape[-1]
         model = nn.models.Model_MLP([input_dim, 600, num_classes], 'ReLU')
 
-    optimizer = nn.optimizer.SGD(init_lr=CONFIG["init_lr"], model=model)
-    scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
+    optimizer = nn.optimizer.MomentGD(init_lr=CONFIG["init_lr"], model=model)
+    # optimizer = nn.optimizer.SGD(init_lr=CONFIG["init_lr"], model=model)
+    scheduler = nn.lr_scheduler.ConstantLR(optimizer=optimizer)
+    # scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
     loss_fn = nn.op.MultiCrossEntropyLoss(model=model, max_classes=num_classes)
 
     runner = nn.MyRunner.MyRunner(
