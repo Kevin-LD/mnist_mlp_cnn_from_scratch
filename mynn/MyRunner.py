@@ -82,7 +82,7 @@ class MyRunner:
                     wandb.log({
                         "train/batch_loss": float(trn_loss),
                         "train/batch_score": float(trn_score),
-                        "learning_rate": float(self.optimizer.lr) if hasattr(self.optimizer, 'lr') else 0.0
+                        "learning_rate": float(self.optimizer.init_lr)
                     }, step=global_step)
 
                 pbar.set_postfix({"loss": f"{trn_loss:.4f}"})
