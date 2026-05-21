@@ -313,6 +313,51 @@ class Flatten(Layer):
         """
         return grad.reshape(self.orig_shape)
     
+class Dropout(Layer):
+    """
+    Dropout 正则化层。
+    """
+    def __init__(self, drop_rate=0.5) -> None:
+        super().__init__()
+        self.drop_rate = drop_rate
+        self.mask = None
+        self.optimizable = False
+        self.mode = 'train'  # 默认为训练模式，可选 'train' 或 'test'
+
+    def __call__(self, X) -> np.ndarray:
+        return self.forward(X)
+
+    def forward(self, X):
+        """
+        前向传播
+        X: 任意形状的输入特征
+        """
+        if self.mode == 'train' and self.drop_rate > 0:
+            keep_prob = 1.0 - self.drop_rate
+            self.mask = (np.random.rand(*X.shape) >= self.drop_rate) / keep_prob
+            return X * self.mask
+        else:
+            # 测试模式下，Dropout 不起作用，直接透传
+            return X
+
+    def backward(self, grads):
+        """
+        反向传播
+        grads: 传回当前层的梯度，形状与前向传播的 X 一致
+        """
+        if self.mode == 'train' and self.drop_rate > 0:
+            return grads * self.mask
+        else:
+            return grads
+
+    def train(self):
+        """切换到训练模式"""
+        self.mode = 'train'
+
+    def eval(self):
+        """切换到测试/评估模式"""
+        self.mode = 'test'
+    
 class L2Regularization(Layer):
     """
     L2 Reg can act as weight decay that can be implemented in class Linear.
