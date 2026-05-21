@@ -8,9 +8,9 @@ import mynn as nn
 from draw_tools import MyPlot
 
 # 全局配置开关
-model_type = "MLP"       # 可选: "CNN" 或 "MLP"
-drop_rate = 0.0          # (MLP 中) Dropout 丢弃率。0 表示关闭
-use_momentum = True     # 是否使用动量 SGD
+model_type = "CNN"       # 可选: "CNN" 或 "MLP"
+drop_rate = 0            # (MLP 中) Dropout 丢弃率。0 表示关闭
+use_momentum = False     # 是否使用动量 SGD
 use_bn = False           # 是否在 CNN 中加入 2D 批归一化层
 
 # 调度器控制
@@ -49,7 +49,7 @@ CONFIG = {
     "init_lr": 0.06,
     "save_dir": dynamic_save_dir,
     "use_wandb": True,
-    "weight_decay": 0,
+    "weight_decay": 1e-4,
     "dataset": {
         "images": r'./dataset/MNIST/train-images-idx3-ubyte.gz',
         "labels": r'./dataset/MNIST/train-labels-idx1-ubyte.gz'
