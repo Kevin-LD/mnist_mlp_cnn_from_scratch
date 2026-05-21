@@ -1,12 +1,9 @@
 import numpy as np
 import os
-import json  # 引入 JSON 模块处理元数据
+import json
 from tqdm import tqdm
 
 class MyRunner:
-    """
-    精简优化版训练器：每个 Epoch 独立生命周期进度条，彻底告别冗余刷屏
-    """
     def __init__(self, model, optimizer, metric, loss_fn, batch_size=32, scheduler=None):
         self.model = model
         self.optimizer = optimizer
@@ -44,15 +41,17 @@ class MyRunner:
 
         global_step = 0 
         
-        # 外层 Epoch 不再套用 tqdm，保持干净
         for epoch in range(num_epochs):
+            # 每个 Epoch 开始时，将模型切换为训练模式（激活 Dropout）
+            if hasattr(self.model, 'train'):
+                self.model.train()
+
             idx = np.random.permutation(num_samples)
             X, y = X[idx], y[idx]
 
             epoch_trn_losses = []
             epoch_trn_scores = []
 
-            # 每个 Epoch 启动一个独立的局部进度条
             pbar = tqdm(range(num_batches), desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch")
             
             for iteration in pbar:
@@ -77,7 +76,7 @@ class MyRunner:
                 if self.scheduler is not None:
                     self.scheduler.step()
 
-                # 后台高频统计静默同步给 W&B
+                # 高频统计静默同步给 W&B
                 if has_wandb:
                     wandb.log({
                         "train/batch_loss": float(trn_loss),
@@ -89,6 +88,7 @@ class MyRunner:
 
             pbar.close()
             
+            # 执行验证（内部会自动切换为 eval 模式）
             dev_score, dev_loss = self.eval(dev_set)
             
             avg_trn_loss = np.mean(epoch_trn_losses)
@@ -138,6 +138,8 @@ class MyRunner:
                         "size_list": self.model.size_list,
                         "act_func": str(self.model.act_func)
                     }
+                    if hasattr(self.model, 'drop_rate'):
+                        metadata["hyperparameters"]["drop_rate"] = float(self.model.drop_rate)
                 
                 # 保存元数据
                 metadata_path = os.path.join(save_dir, 'model_metadata.json')
@@ -148,6 +150,9 @@ class MyRunner:
                 self.best_score = dev_score
 
     def eval(self, data_set):
+        if hasattr(self.model, 'eval'):
+            self.model.eval()
+
         X, y = data_set
         logits = self.model(X)
         loss = self.loss_fn(logits, y)
