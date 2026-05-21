@@ -2,82 +2,103 @@ from .op import *
 import pickle
 
 class Model_MLP(Layer):
-    """
-    A model with linear layers. We provied you with this example about a structure of a model.
-    """
-    def __init__(self, size_list=None, act_func=None, lambda_list=None):
+    def __init__(self, size_list, act_func='ReLU', drop_rate=0.0, weight_decay=False, weight_decay_lambda=1e-4):
+        super().__init__()
         self.size_list = size_list
         self.act_func = act_func
-
-        if size_list is not None and act_func is not None:
-            self.layers = []
-            for i in range(len(size_list) - 1):
-                layer = Linear(in_dim=size_list[i], out_dim=size_list[i + 1], initialize_method="kaiming")
-                if lambda_list is not None:
-                    layer.weight_decay = True
-                    layer.weight_decay_lambda = lambda_list[i]
-                if act_func == 'Logistic':
-                    raise NotImplementedError
-                elif act_func == 'ReLU':
-                    layer_f = ReLU()
-                self.layers.append(layer)
-                if i < len(size_list) - 2:
-                    self.layers.append(layer_f)
+        self.drop_rate = drop_rate
+        
+        self.layers = []
+        
+        # 动态构建扁平化网络层列表
+        for i in range(len(size_list) - 1):
+            # 1. 添加线性层
+            self.layers.append(
+                Linear(in_dim=size_list[i], out_dim=size_list[i + 1], initialize_method="kaiming",
+                       weight_decay=weight_decay, weight_decay_lambda=weight_decay_lambda)
+            )
+            
+            # 2. 如果不是最后一层输出层，则添加激活层和 Dropout 层
+            if i < len(size_list) - 2:
+                if act_func == 'ReLU':
+                    self.layers.append(ReLU())
+                elif act_func == 'Logistic':
+                    raise NotImplementedError("Logistic 激活函数暂未实现")
+                else:
+                    raise ValueError(f"未知的激活函数: {act_func}")
+                
+                # 插入 Dropout 层
+                if drop_rate > 0:
+                    self.layers.append(Dropout(drop_rate=drop_rate))
 
     def __call__(self, X):
         return self.forward(X)
 
     def forward(self, X):
-        assert self.size_list is not None and self.act_func is not None, 'Model has not initialized yet. Use model.load_model to load a model or create a new model with size_list and act_func offered.'
+        """
+        前向传播
+        """
         outputs = X
         for layer in self.layers:
             outputs = layer(outputs)
         return outputs
 
     def backward(self, loss_grad):
+        """
+        反向传播
+        """
         grads = loss_grad
         for layer in reversed(self.layers):
             grads = layer.backward(grads)
         return grads
 
-    def load_model(self, param_list):
-        with open(param_list, 'rb') as f:
-            param_list = pickle.load(f)
-        self.size_list = param_list[0]
-        self.act_func = param_list[1]
+    def train(self):
+        """切换模型至训练模式（激活 Dropout）"""
+        for layer in self.layers:
+            if hasattr(layer, 'train'):
+                layer.train()
 
-        self.layers = []
-        for i in range(len(self.size_list) - 1):
-            layer = Linear(in_dim=self.size_list[i], out_dim=self.size_list[i + 1])
-            layer.W = param_list[i + 2]['W']
-            layer.b = param_list[i + 2]['b']
-            layer.params['W'] = layer.W
-            layer.params['b'] = layer.b
-            layer.weight_decay = param_list[i + 2]['weight_decay']
-            layer.weight_decay_lambda = param_list[i+2]['lambda']
-            if self.act_func == 'Logistic':
-                raise NotImplementedError
-            elif self.act_func == 'ReLU':
-                layer_f = ReLU()
-            self.layers.append(layer)
-            if i < len(self.size_list) - 2:
-                self.layers.append(layer_f)
-        
-    def save_model(self, save_path):
-        param_list = [self.size_list, self.act_func]
+    def eval(self):
+        """切换模型至评估/测试模式（关闭 Dropout）"""
+        for layer in self.layers:
+            if hasattr(layer, 'eval'):
+                layer.eval()
+
+    def load_model(self, param_path):
+        with open(param_path, 'rb') as f:
+            param_list = pickle.load(f)
+            
+        idx = 0
         for layer in self.layers:
             if layer.optimizable:
-                param_list.append({'W' : layer.params['W'], 'b' : layer.params['b'], 'weight_decay' : layer.weight_decay, 'lambda' : layer.weight_decay_lambda})
+                state_dict = param_list[idx]
+                layer.W = state_dict['W']
+                layer.b = state_dict['b']
+                layer.params['W'] = layer.W
+                layer.params['b'] = layer.b
+                layer.weight_decay = state_dict['weight_decay']
+                layer.weight_decay_lambda = state_dict['lambda']
+                idx += 1
+        
+    def save_model(self, save_path):
+        param_list = []
+        for layer in self.layers:
+            if layer.optimizable:
+                param_list.append({
+                    'W': layer.params['W'], 
+                    'b': layer.params['b'], 
+                    'weight_decay': layer.weight_decay, 
+                    'lambda': layer.weight_decay_lambda
+                })
         
         with open(save_path, 'wb') as f:
-            pickle.dump(param_list, f)
-        
+            pickle.dump(param_list, f)        
 
 class Model_CNN(Layer):
     """
     A model with conv2D layers. Implement it using the operators you have written in op.py
     """
-    def __init__(self, weight_decay=False, weight_decay_lambda=1e-8) -> None:
+    def __init__(self, weight_decay=False, weight_decay_lambda=1e-4) -> None:
         super().__init__()
         # 针对 28x28 的单通道 MNIST 图像设计的 CNN 架构
         # Conv1: 输入 1 通道 -> 输出 8 通道, 卷积核 3x3, 步长 2, padding 1 -> 输出尺寸: 14x14
