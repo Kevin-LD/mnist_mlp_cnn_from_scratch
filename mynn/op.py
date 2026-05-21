@@ -18,16 +18,18 @@ class Linear(Layer):
     """
     The linear layer for a neural network. You need to implement the forward function and the backward function.
     """
-    def __init__(self, in_dim, out_dim, initialize_method='kaiming', weight_decay=False, weight_decay_lambda=1e-8) -> None:
+    def __init__(self, in_dim, out_dim, initialize_method="kaiming", weight_decay=False, weight_decay_lambda=1e-8) -> None:
         super().__init__()
+        self.b = np.zeros((1, out_dim))
         # 使用 Kaiming (He) 初始化权重 W
         if initialize_method == 'kaiming':
             std = np.sqrt(2.0 / in_dim)
             self.W = np.random.normal(loc=0.0, scale=std, size=(in_dim, out_dim))
-            self.b = np.zeros((1, out_dim))
+        elif initialize_method == 'normal':
+            std = 0.01 
+            self.W = np.random.normal(loc=0.0, scale=std, size=(in_dim, out_dim))
         else:
-            self.W = initialize_method(size=(in_dim, out_dim))
-            self.b = initialize_method(size=(1, out_dim))
+            raise ValueError(f"未知的初始化方法: {initialize_method}")
         self.grads = {'W' : None, 'b' : None}
         self.input = None # Record the input for backward process.
 
@@ -75,7 +77,7 @@ class conv2D(Layer):
     """
     The 2D convolutional layer. Try to implement it on your own.
     """
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, initialize_method='kaiming', weight_decay=False, weight_decay_lambda=1e-8) -> None:
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, initialize_method="kaiming", weight_decay=False, weight_decay_lambda=1e-8) -> None:
         super().__init__()
         self.in_channels = in_channels
         self.out_channels = out_channels
@@ -83,15 +85,19 @@ class conv2D(Layer):
         self.stride = stride
         self.padding = padding
         
-        # 使用 Kaiming (He) 初始化卷积核权重 W
+        self.b = np.zeros((out_channels, 1, 1))
+        
         if initialize_method == 'kaiming':
             fan_in = in_channels * kernel_size * kernel_size
             std = np.sqrt(2.0 / fan_in)
             self.W = np.random.normal(loc=0.0, scale=std, size=(out_channels, in_channels, kernel_size, kernel_size))
-            self.b = np.zeros((out_channels, 1, 1))
+            
+        elif initialize_method == 'normal':
+            std = 0.01 # 卷积层也使用 0.01 的标准差
+            self.W = np.random.normal(loc=0.0, scale=std, size=(out_channels, in_channels, kernel_size, kernel_size))
+            
         else:
-            self.W = initialize_method(size=(out_channels, in_channels, kernel_size, kernel_size))
-            self.b = initialize_method(size=(out_channels, 1, 1))
+            raise ValueError(f"未知的初始化方法: {initialize_method}")
             
         self.grads = {'W' : None, 'b' : None}
         self.X = None # 用于缓存输入以供反向传播使用
