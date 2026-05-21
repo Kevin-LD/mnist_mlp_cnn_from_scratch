@@ -8,20 +8,28 @@ import mynn as nn
 from draw_tools import MyPlot
 
 
-model_type = "MLP"  # 可选: "CNN" 或 "MLP"
+model_type = "CNN"  # 可选: "CNN" 或 "MLP"
+drop_rate = 0.0     # Dropout 丢弃率。0 表示关闭，推荐实验值：0.1, 0.3, 0.5
+
 current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-save_dir_name = f"{model_type.lower()}_run_{current_time_str}"
+if model_type == "MLP":
+    save_dir_name = f"{model_type.lower()}_drop{drop_rate}_{current_time_str}"
+else:
+    save_dir_name = f"{model_type.lower()}_run_{current_time_str}"
+    
 dynamic_save_dir = os.path.join("./best_models", save_dir_name)
 
 CONFIG = {
     "model_type": model_type,   
-    "seed": 309,
+    "drop_rate": drop_rate,
+    "seed": 42,
     "batch_size": 32,
-    "num_epochs": 5,
+    "num_epochs": 15,
     "init_lr": 0.06,
     "save_dir": dynamic_save_dir,
-    "use_wandb": True,         
+    "use_wandb": True,
+    "weight_decay": 1e-4,
     "dataset": {
         "images": r'./dataset/MNIST/train-images-idx3-ubyte.gz',
         "labels": r'./dataset/MNIST/train-labels-idx1-ubyte.gz'
@@ -72,7 +80,12 @@ def load_and_preprocess_mnist(config):
 def main():
     if CONFIG["use_wandb"]:
         import wandb
-        wandb.init(project="deep-learning-pj2-mnist", name=f"run_{CONFIG['model_type']}", config=CONFIG)
+        # 【优化】WandB 运行名称动态加入 drop_rate，方便在看板上切片对比
+        run_name = f"run_{CONFIG['model_type']}"
+        if CONFIG["model_type"] == "MLP":
+            run_name += f"_drop_{CONFIG['drop_rate']}"
+            
+        wandb.init(project="deep-learning-pj2-mnist", name=run_name, config=CONFIG)
 
     # 处理数据
     train_set, dev_set = load_and_preprocess_mnist(CONFIG)
@@ -80,13 +93,20 @@ def main():
     num_classes = int(train_labs.max() + 1)
     
     if CONFIG["model_type"] == "CNN":
-        model = nn.models.Model_CNN()
+        model = nn.models.Model_CNN(weight_decay=True, weight_decay_lambda=CONFIG["weight_decay"])
     else:
         input_dim = train_imgs.shape[-1]
-        model = nn.models.Model_MLP([input_dim, 600, num_classes], 'ReLU')
+        # 【修改】使用上一轮重构后的新接口签名，传入 drop_rate 和 L2 正则化开关
+        model = nn.models.Model_MLP(
+            size_list=[input_dim, 600, num_classes], 
+            act_func='ReLU', 
+            drop_rate=CONFIG["drop_rate"],
+            weight_decay=True,
+            weight_decay_lambda=CONFIG["weight_decay"]
+        )
 
-    optimizer = nn.optimizer.MomentGD(init_lr=CONFIG["init_lr"], model=model)
-    # optimizer = nn.optimizer.SGD(init_lr=CONFIG["init_lr"], model=model)
+    # optimizer = nn.optimizer.MomentGD(init_lr=CONFIG["init_lr"], model=model)
+    optimizer = nn.optimizer.SGD(init_lr=CONFIG["init_lr"], model=model)
     scheduler = nn.lr_scheduler.ConstantLR(optimizer=optimizer)
     # scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
     loss_fn = nn.op.MultiCrossEntropyLoss(model=model, max_classes=num_classes)
@@ -115,3 +135,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
