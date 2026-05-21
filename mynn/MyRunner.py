@@ -42,7 +42,7 @@ class MyRunner:
         global_step = 0 
         
         for epoch in range(num_epochs):
-            # 每个 Epoch 开始时，将模型切换为训练模式（激活 Dropout）
+            # 每个 Epoch 开始时，将模型切换为训练模式
             if hasattr(self.model, 'train'):
                 self.model.train()
 
@@ -131,15 +131,21 @@ class MyRunner:
                         "train_loss": float(avg_trn_loss)
                     }
                 }
-                
-                # 如果是 MLP 模型，额外把网络层级和激活函数打包存进元数据
+        
+                hyperparams = {}
+
                 if hasattr(self.model, 'size_list') and self.model.size_list is not None:
-                    metadata["hyperparameters"] = {
-                        "size_list": self.model.size_list,
-                        "act_func": str(self.model.act_func)
-                    }
-                    if hasattr(self.model, 'drop_rate'):
-                        metadata["hyperparameters"]["drop_rate"] = float(self.model.drop_rate)
+                    hyperparams["size_list"] = self.model.size_list
+                    hyperparams["act_func"] = str(self.model.act_func)
+                
+                if hasattr(self.model, 'use_bn'):
+                    hyperparams["use_bn"] = bool(self.model.use_bn)
+                    
+                if hasattr(self.model, 'drop_rate') and self.model.drop_rate is not None:
+                    hyperparams["drop_rate"] = float(self.model.drop_rate)
+                
+                if hyperparams:
+                    metadata["hyperparameters"] = hyperparams
                 
                 # 保存元数据
                 metadata_path = os.path.join(save_dir, 'model_metadata.json')

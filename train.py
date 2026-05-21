@@ -7,29 +7,49 @@ from datetime import datetime
 import mynn as nn
 from draw_tools import MyPlot
 
+# 全局配置开关
+model_type = "MLP"       # 可选: "CNN" 或 "MLP"
+drop_rate = 0.0          # (MLP 中) Dropout 丢弃率。0 表示关闭
+use_momentum = True     # 是否使用动量 SGD
+use_bn = False           # 是否在 CNN 中加入 2D 批归一化层
 
-model_type = "CNN"  # 可选: "CNN" 或 "MLP"
-drop_rate = 0.0     # Dropout 丢弃率。0 表示关闭，推荐实验值：0.1, 0.3, 0.5
+# 调度器控制
+use_scheduler = False     # 是否启用学习率衰减调度器
+# 每 Epoch 约 1563 步 (50000张图/32)。如需 5 Epochs 衰减一次，设为 1563 * 5 = 7815
+scheduler_step = 7815     # 每隔多少个 Batch 衰减一次
+scheduler_gamma = 0.1    # 每次衰减的倍数
 
 current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
+opt_suffix = "moment" if use_momentum else "sgd"
+sched_suffix = f"step{scheduler_step}" if use_scheduler else "const"
 
+# 动态组合本地存储文件夹名称
 if model_type == "MLP":
-    save_dir_name = f"{model_type.lower()}_drop{drop_rate}_{current_time_str}"
+    save_dir_name = f"{model_type.lower()}_drop{drop_rate}_{opt_suffix}_{sched_suffix}_{current_time_str}"
 else:
-    save_dir_name = f"{model_type.lower()}_run_{current_time_str}"
+    bn_suffix = "bn" if use_bn else "nobn"
+    save_dir_name = f"{model_type.lower()}_{bn_suffix}_{opt_suffix}_{sched_suffix}_{current_time_str}"
     
 dynamic_save_dir = os.path.join("./best_models", save_dir_name)
 
 CONFIG = {
     "model_type": model_type,   
     "drop_rate": drop_rate,
+    "use_momentum": use_momentum,  
+    "use_bn": use_bn,
+    
+    # 将 Scheduler 的参数同步进 CONFIG 字典
+    "use_scheduler": use_scheduler,
+    "scheduler_step_size": scheduler_step,
+    "scheduler_gamma": scheduler_gamma,
+    
     "seed": 42,
     "batch_size": 32,
     "num_epochs": 15,
     "init_lr": 0.06,
     "save_dir": dynamic_save_dir,
     "use_wandb": True,
-    "weight_decay": 1e-4,
+    "weight_decay": 0,
     "dataset": {
         "images": r'./dataset/MNIST/train-images-idx3-ubyte.gz',
         "labels": r'./dataset/MNIST/train-labels-idx1-ubyte.gz'
@@ -76,14 +96,21 @@ def load_and_preprocess_mnist(config):
     return (train_imgs, train_labs), (valid_imgs, valid_labs)
 
 
-
 def main():
     if CONFIG["use_wandb"]:
         import wandb
-        # 【优化】WandB 运行名称动态加入 drop_rate，方便在看板上切片对比
-        run_name = f"run_{CONFIG['model_type']}"
+        opt_name = "Moment" if CONFIG["use_momentum"] else "SGD"
+        run_name = f"run_{CONFIG['model_type']}_{opt_name}"
         if CONFIG["model_type"] == "MLP":
             run_name += f"_drop_{CONFIG['drop_rate']}"
+        elif CONFIG["model_type"] == "CNN":
+            run_name += f"_bn_{CONFIG['use_bn']}"
+            
+        # 将 Scheduler 的参数同步进 CONFIG 字典
+        if CONFIG["use_scheduler"]:
+            run_name += f"_StepLR"
+        else:
+            run_name += f"_ConstLR"
             
         wandb.init(project="deep-learning-pj2-mnist", name=run_name, config=CONFIG)
 
@@ -93,10 +120,13 @@ def main():
     num_classes = int(train_labs.max() + 1)
     
     if CONFIG["model_type"] == "CNN":
-        model = nn.models.Model_CNN(weight_decay=True, weight_decay_lambda=CONFIG["weight_decay"])
+        model = nn.models.Model_CNN(
+            weight_decay=True, 
+            weight_decay_lambda=CONFIG["weight_decay"],
+            use_bn=CONFIG["use_bn"]
+        )
     else:
         input_dim = train_imgs.shape[-1]
-        # 【修改】使用上一轮重构后的新接口签名，传入 drop_rate 和 L2 正则化开关
         model = nn.models.Model_MLP(
             size_list=[input_dim, 600, num_classes], 
             act_func='ReLU', 
@@ -105,10 +135,22 @@ def main():
             weight_decay_lambda=CONFIG["weight_decay"]
         )
 
-    # optimizer = nn.optimizer.MomentGD(init_lr=CONFIG["init_lr"], model=model)
-    optimizer = nn.optimizer.SGD(init_lr=CONFIG["init_lr"], model=model)
-    scheduler = nn.lr_scheduler.ConstantLR(optimizer=optimizer)
-    # scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
+    # 选择优化器
+    if CONFIG["use_momentum"]:
+        optimizer = nn.optimizer.MomentGD(init_lr=CONFIG["init_lr"], model=model)
+    else:
+        optimizer = nn.optimizer.SGD(init_lr=CONFIG["init_lr"], model=model)
+        
+    # 根据配置条件动态选择激活 StepLR 或保持 ConstantLR
+    if CONFIG["use_scheduler"]:
+        scheduler = nn.lr_scheduler.StepLR(
+            optimizer=optimizer, 
+            step_size=CONFIG["scheduler_step_size"], 
+            gamma=CONFIG["scheduler_gamma"]
+        )
+    else:
+        scheduler = nn.lr_scheduler.ConstantLR(optimizer=optimizer)
+        
     loss_fn = nn.op.MultiCrossEntropyLoss(model=model, max_classes=num_classes)
 
     runner = nn.MyRunner.MyRunner(
@@ -135,4 +177,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-    
