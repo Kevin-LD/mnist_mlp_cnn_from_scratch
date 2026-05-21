@@ -357,6 +357,94 @@ class Dropout(Layer):
     def eval(self):
         """切换到测试/评估模式"""
         self.mode = 'test'
+
+import numpy as np
+
+class BatchNorm2d(Layer):
+    """
+    针对 CNN 特征图 [B, C, H, W] 的 2D 批归一化层（精简优雅版）
+    """
+    def __init__(self, num_features, momentum=0.9, eps=1e-5) -> None:
+        super().__init__()
+        self.num_features = num_features
+        self.momentum = momentum
+        self.eps = eps
+        self.optimizable = True
+        self.mode = 'train'
+        
+        # 标准命名：1D 数组初始化，形状均为 (C,)
+        self.gamma = np.ones(num_features)
+        self.beta = np.zeros(num_features)
+        
+        # 统一管理参数与梯度
+        self.params = {'gamma': self.gamma, 'beta': self.beta}
+        self.grads = {'gamma': None, 'beta': None}
+        
+        # 滑动平均统计量 (C,)
+        self.running_mean = np.zeros(num_features)
+        self.running_var = np.ones(num_features)
+        
+        # 缓存中间变量用于反向传播
+        self.x_hat = None
+        self.var = None
+        self.mean = None
+
+    def __call__(self, X):
+        return self.forward(X)
+
+    def forward(self, X):
+        """
+        X 形状: [B, C, H, W]
+        """
+        if self.mode == 'train':
+            # 跨越 Batch(0), Height(2), Width(3) 维度求均值与方差，输出形状为 (C,)
+            self.mean = np.mean(X, axis=(0, 2, 3))
+            self.var = np.var(X, axis=(0, 2, 3))
+            
+            # 使用 [None, :, None, None] 动态升维至 (1, C, 1, 1) 触发 NumPy 广播机制
+            self.x_hat = (X - self.mean[None, :, None, None]) / np.sqrt(self.var[None, :, None, None] + self.eps)
+            
+            # 更新全局滑动平均
+            self.running_mean = self.momentum * self.running_mean + (1.0 - self.momentum) * self.mean
+            self.running_var = self.momentum * self.running_var + (1.0 - self.momentum) * self.var
+        else:
+            # 测试模式：直接使用滑动统计量
+            self.x_hat = (X - self.running_mean[None, :, None, None]) / np.sqrt(self.running_var[None, :, None, None] + self.eps)
+            
+        # 仿射变换同样在计算时通过 newaxis 升维
+        out = self.gamma[None, :, None, None] * self.x_hat + self.beta[None, :, None, None]
+        return out
+
+    def backward(self, grads):
+        """
+        grads 形状: [B, C, H, W]
+        """
+        B, C, H, W = grads.shape
+        N = B * H * W  # 跨空间和 Batch 的总像素点数
+        
+        # 计算参数梯度，输出形状为 (C,)
+        self.grads['beta'] = np.sum(grads, axis=(0, 2, 3))
+        self.grads['gamma'] = np.sum(grads * self.x_hat, axis=(0, 2, 3))
+        
+        # 简化版 BN 反向传播公式，所有 1D 统计量在计算时统一升维
+        gamma_4d = self.gamma[None, :, None, None]
+        var_4d = self.var[None, :, None, None]
+        sum_grads_4d = self.grads['beta'][None, :, None, None]
+        sum_grads_x_hat_4d = self.grads['gamma'][None, :, None, None]
+        
+        dx = (gamma_4d / (N * np.sqrt(var_4d + self.eps))) * (
+            N * grads - sum_grads_4d - self.x_hat * sum_grads_x_hat_4d
+        )
+        return dx
+
+    def train(self):
+        self.mode = 'train'
+
+    def eval(self):
+        self.mode = 'test'
+        
+    def clear_grad(self):
+        self.grads = {'gamma': None, 'beta': None}
     
 class L2Regularization(Layer):
     """
