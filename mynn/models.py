@@ -12,7 +12,7 @@ class Model_MLP(Layer):
         if size_list is not None and act_func is not None:
             self.layers = []
             for i in range(len(size_list) - 1):
-                layer = Linear(in_dim=size_list[i], out_dim=size_list[i + 1])
+                layer = Linear(in_dim=size_list[i], out_dim=size_list[i + 1], initialize_method="kaiming")
                 if lambda_list is not None:
                     layer.weight_decay = True
                     layer.weight_decay_lambda = lambda_list[i]
@@ -86,14 +86,14 @@ class Model_CNN(Layer):
         # Linear: 784 -> 10 分类
         self.layers = [
             conv2D(in_channels=1, out_channels=8, kernel_size=3, stride=2, padding=1, 
-                   initialize_method='kaiming', weight_decay=weight_decay, weight_decay_lambda=weight_decay_lambda),
+                   initialize_method="kaiming", weight_decay=weight_decay, weight_decay_lambda=weight_decay_lambda),
             ReLU(),
             conv2D(in_channels=8, out_channels=16, kernel_size=3, stride=2, padding=1, 
-                   initialize_method='kaiming', weight_decay=weight_decay, weight_decay_lambda=weight_decay_lambda),
+                   initialize_method="kaiming", weight_decay=weight_decay, weight_decay_lambda=weight_decay_lambda),
             ReLU(),
             Flatten(),
-            Linear(in_dim=784, out_dim=10, initialize_method='kaiming', 
-                   weight_decay=weight_decay, weight_decay_lambda=weight_decay_lambda)
+            Linear(in_dim=784, out_dim=10, weight_decay=weight_decay,
+                   initialize_method="kaiming", weight_decay_lambda=weight_decay_lambda)
         ]
 
     def __call__(self, X):
