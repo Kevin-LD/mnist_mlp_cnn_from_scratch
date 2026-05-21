@@ -17,3 +17,6 @@ idx.pickle
 
 # wandb
 wandb/
+
+# github
+github_token.txt
