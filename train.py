@@ -8,20 +8,18 @@ import mynn as nn
 from draw_tools import MyPlot
 
 # 全局配置开关
-model_type = "CNN"       # 可选: "CNN" 或 "MLP"
+model_type = "MLP"       # 可选: "CNN" 或 "MLP"
 drop_rate = 0            # (MLP 中) Dropout 丢弃率。0 表示关闭
 use_momentum = False     # 是否使用动量 SGD
 use_bn = False           # 是否在 CNN 中加入 2D 批归一化层
 
 # 调度器控制
 use_scheduler = False     # 是否启用学习率衰减调度器
-# 每 Epoch 约 1563 步 (50000张图/32)。如需 5 Epochs 衰减一次，设为 1563 * 5 = 7815
-scheduler_step = 7815     # 每隔多少个 Batch 衰减一次
-scheduler_gamma = 0.1    # 每次衰减的倍数
+end_lr = 0.0             # 线性下降结束时的最终学习率 (通常设为 0.0)
 
 current_time_str = datetime.now().strftime("%Y%m%d_%H%M%S")
 opt_suffix = "moment" if use_momentum else "sgd"
-sched_suffix = f"step{scheduler_step}" if use_scheduler else "const"
+sched_suffix = "linear" if use_scheduler else "const"
 
 # 动态组合本地存储文件夹名称
 if model_type == "MLP":
@@ -38,18 +36,16 @@ CONFIG = {
     "use_momentum": use_momentum,  
     "use_bn": use_bn,
     
-    # 将 Scheduler 的参数同步进 CONFIG 字典
     "use_scheduler": use_scheduler,
-    "scheduler_step_size": scheduler_step,
-    "scheduler_gamma": scheduler_gamma,
+    "end_lr": end_lr,
     
     "seed": 42,
     "batch_size": 32,
     "num_epochs": 15,
-    "init_lr": 0.06,
+    "init_lr": 0.6,
     "save_dir": dynamic_save_dir,
     "use_wandb": True,
-    "weight_decay": 1e-4,
+    "weight_decay": 0,
     "dataset": {
         "images": r'./dataset/MNIST/train-images-idx3-ubyte.gz',
         "labels": r'./dataset/MNIST/train-labels-idx1-ubyte.gz'
@@ -106,9 +102,8 @@ def main():
         elif CONFIG["model_type"] == "CNN":
             run_name += f"_bn_{CONFIG['use_bn']}"
             
-        # 将 Scheduler 的参数同步进 CONFIG 字典
         if CONFIG["use_scheduler"]:
-            run_name += f"_StepLR"
+            run_name += f"_LinearLR"
         else:
             run_name += f"_ConstLR"
             
@@ -141,13 +136,22 @@ def main():
     else:
         optimizer = nn.optimizer.SGD(init_lr=CONFIG["init_lr"], model=model)
         
-    # 根据配置条件动态选择激活 StepLR 或保持 ConstantLR
+    # 根据配置条件动态选择激活 LinearLR 或保持 ConstantLR
     if CONFIG["use_scheduler"]:
-        scheduler = nn.lr_scheduler.StepLR(
+        # 动态计算当前数据集在特定 BatchSize 下单轮的步数
+        num_samples = train_imgs.shape[0]
+        num_batches = (num_samples + CONFIG["batch_size"] - 1) // CONFIG["batch_size"]
+        
+        # 累乘总 Epoch，算出整个生命周期总的迭代次数 (Total Steps)
+        total_steps = num_batches * CONFIG["num_epochs"]
+
+        scheduler = nn.lr_scheduler.LinearLR(
             optimizer=optimizer, 
-            step_size=CONFIG["scheduler_step_size"], 
-            gamma=CONFIG["scheduler_gamma"]
+            total_steps=total_steps, 
+            end_lr=CONFIG["end_lr"]
         )
+        print(f"--> [Scheduler 激活] 识别到单轮包含 {num_batches} 个 Batch。")
+        print(f"--> 学习率将在接下来总计 {total_steps} 步的训练中，从 {CONFIG['init_lr']} 线性下降至 {CONFIG['end_lr']}。")
     else:
         scheduler = nn.lr_scheduler.ConstantLR(optimizer=optimizer)
         
