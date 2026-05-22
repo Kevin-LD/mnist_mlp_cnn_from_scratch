@@ -50,3 +50,18 @@ class MultiStepLR(scheduler):
 
 class ExponentialLR(scheduler):
     pass
+
+class LinearLR(scheduler):
+    def __init__(self, optimizer, total_steps, end_lr=0.0) -> None:
+        super().__init__(optimizer)
+        self.total_steps = total_steps
+        self.end_lr = end_lr
+        self.start_lr = optimizer.init_lr
+
+    def step(self) -> None:
+        self.step_count += 1
+        
+        if self.step_count <= self.total_steps:
+            alpha = self.step_count / self.total_steps
+            current_lr = self.start_lr - (self.start_lr - self.end_lr) * alpha
+            self.optimizer.init_lr = current_lr
