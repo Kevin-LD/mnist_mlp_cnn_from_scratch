@@ -5,11 +5,10 @@ import gzip
 import matplotlib.pyplot as plt
 import pickle
 
-model = nn.models.Model_MLP()
-model.load_model(r'.\best_models\base_line_best_model.pickle')
+model_path = r'best_models/best_model.pickle'
 
-test_images_path = r'.\dataset\MNIST\t10k-images-idx3-ubyte.gz'
-test_labels_path = r'.\dataset\MNIST\t10k-labels-idx1-ubyte.gz'
+test_images_path = r'./dataset/MNIST/t10k-images-idx3-ubyte.gz'
+test_labels_path = r'./dataset/MNIST/t10k-labels-idx1-ubyte.gz'
 
 with gzip.open(test_images_path, 'rb') as f:
         magic, num, rows, cols = unpack('>4I', f.read(16))
@@ -20,6 +19,9 @@ with gzip.open(test_labels_path, 'rb') as f:
         test_labs = np.frombuffer(f.read(), dtype=np.uint8)
 
 test_imgs = test_imgs / test_imgs.max()
+
+model = nn.models.Model_MLP([test_imgs.shape[-1], 600, 10])
+model.load_model(model_path)
 
 logits = model(test_imgs)
 print(nn.metric.accuracy(logits, test_labs))

@@ -40,29 +40,29 @@ train_imgs = train_imgs / train_imgs.max()
 valid_imgs = valid_imgs / valid_imgs.max()
 
 
-# CNN 模型预处理；MLP 请注释下面两行
-train_imgs = train_imgs.reshape(-1, 1, 28, 28)  # 变为 [Batch, 1, 28, 28]
-valid_imgs = valid_imgs.reshape(-1, 1, 28, 28)  # 变为 [Batch, 1, 28, 28]
+# # CNN 模型预处理；MLP 请注释下面两行
+# train_imgs = train_imgs.reshape(-1, 1, 28, 28)  # 变为 [Batch, 1, 28, 28]
+# valid_imgs = valid_imgs.reshape(-1, 1, 28, 28)  # 变为 [Batch, 1, 28, 28]
 
-# CNN 训练
-cnn_model = nn.models.Model_CNN()
-optimizer = nn.optimizer.SGD(init_lr=0.06, model=cnn_model)
-scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
-loss_fn = nn.op.MultiCrossEntropyLoss(model=cnn_model, max_classes=train_labs.max()+1)
+# # CNN 训练
+# cnn_model = nn.models.Model_CNN()
+# optimizer = nn.optimizer.SGD(init_lr=0.06, model=cnn_model)
+# scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
+# loss_fn = nn.op.MultiCrossEntropyLoss(model=cnn_model, max_classes=train_labs.max()+1)
 
-runner = nn.runner.RunnerM(cnn_model, optimizer, nn.metric.accuracy, loss_fn, scheduler=scheduler)
+# runner = nn.runner.RunnerM(cnn_model, optimizer, nn.metric.accuracy, loss_fn, scheduler=scheduler)
 
 
 # MLP 训练
-# linear_model = nn.models.Model_MLP([train_imgs.shape[-1], 600, 10], 'ReLU', [1e-4, 1e-4])
-# optimizer = nn.optimizer.SGD(init_lr=0.06, model=linear_model)
-# scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
-# loss_fn = nn.op.MultiCrossEntropyLoss(model=linear_model, max_classes=train_labs.max()+1)
-# runner = nn.runner.RunnerM(linear_model, optimizer, nn.metric.accuracy, loss_fn, scheduler=scheduler)
+linear_model = nn.models.Model_MLP([train_imgs.shape[-1], 600, 10], 'ReLU')
+optimizer = nn.optimizer.SGD(init_lr=0.06, model=linear_model)
+scheduler = nn.lr_scheduler.MultiStepLR(optimizer=optimizer, milestones=[800, 2400, 4000], gamma=0.5)
+loss_fn = nn.op.MultiCrossEntropyLoss(model=linear_model, max_classes=train_labs.max()+1)
+runner = nn.runner.RunnerM(linear_model, optimizer, nn.metric.accuracy, loss_fn, scheduler=scheduler)
 
 
 # 开始训练
-runner.train([train_imgs, train_labs], [valid_imgs, valid_labs], num_epochs=5, log_iters=100, save_dir=r'./best_models')
+runner.train([train_imgs, train_labs], [valid_imgs, valid_labs], num_epochs=1, log_iters=10, save_dir=r'./best_models')
 
 _, axes = plt.subplots(1, 2)
 axes.reshape(-1)
