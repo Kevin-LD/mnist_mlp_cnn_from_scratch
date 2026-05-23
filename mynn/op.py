@@ -358,7 +358,6 @@ class Dropout(Layer):
         """切换到测试/评估模式"""
         self.mode = 'test'
 
-import numpy as np
 
 class BatchNorm2d(Layer):
     """
