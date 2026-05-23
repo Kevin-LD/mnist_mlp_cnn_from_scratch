@@ -76,7 +76,7 @@ class MyRunner:
                 if self.scheduler is not None:
                     self.scheduler.step()
 
-                # 高频统计静默同步给 W&B
+                # 高频统计同步给 W&B
                 if has_wandb:
                     wandb.log({
                         "train/batch_loss": float(trn_loss),
