@@ -6,7 +6,8 @@ from struct import unpack
 import numpy as np
 import mynn as nn
 
-RUN_DIR = r'best_models/mlp_drop0_sgd_const_20260522_114343_higher_lr'
+# 实验目录(.piclke 文件所在目录)
+RUN_DIR = r'best_models/mlp_drop0_sgd_const_20260523_184536'
 
 metadata_path = os.path.join(RUN_DIR, 'model_metadata.json')
 weights_path = os.path.join(RUN_DIR, 'best_model.pickle')
