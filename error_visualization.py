@@ -6,7 +6,7 @@ from struct import unpack
 import matplotlib.pyplot as plt
 import mynn as nn
 
-model_path = r'best_models/mlp_drop0_sgd_const_20260521_190113/best_model.pickle'
+model_path = r'best_models/mlp_drop0.0_sgd_20260521_175444_baseline/best_model.pickle'
 
 model_dir = os.path.dirname(model_path)
 json_path = os.path.join(model_dir, 'model_metadata.json')

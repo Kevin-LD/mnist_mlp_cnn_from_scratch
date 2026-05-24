@@ -7,8 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mynn as nn
 
-# 指向你的模型 pickle 文件，脚本会自动推导同目录下的 json 元数据
-model_path = r'best_models/cnn_bn_sgd_const_20260521_184521_BN/best_model.pickle'  # 替换为你的模型路径
+# 指向模型 pickle 文件
+model_path = r'best_models/cnn_nobn_sgd_20260521_175920_baseline/best_model.pickle'
 
 model_dir = os.path.dirname(model_path)
 json_path = os.path.join(model_dir, 'model_metadata.json')
