@@ -19,7 +19,7 @@ if os.path.exists(json_path):
     hyperparams = metadata.get("hyperparameters", {})
     print(f"成功识别元数据！当前分析的模型为: {model_type}")
 else:
-    print("未找到元数据 json，启动降级兜底方案：默认按标准 MLP 处理")
+    print("未找到元数据 json：默认按标准 MLP 处理")
     model_type = "Model_MLP"
     hyperparams = {"size_list": [784, 600, 10], "act_func": "ReLU"}
 
